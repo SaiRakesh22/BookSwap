@@ -865,7 +865,7 @@ def accept_chat(request_id):
         .execute()
 
     flash('Chat accepted! You can now message each other in SwapMates.', 'success')
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('chat', request_id=request_id))
 
 @app.route('/chat/<int:request_id>')
 def chat(request_id):
