@@ -3,6 +3,17 @@
 {% block title %}Dashboard - BookSwap VIT{% endblock %}
 
 {% block content %}
+<button id="dark-toggle" class="p-2 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+  <!-- Light mode icon -->
+  <svg class="w-5 h-5 text-gray-700 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+  </svg>
+
+  <!-- Dark mode icon -->
+  <svg class="w-5 h-5 text-gray-200 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.485-8.485l-.707.707M4.222 4.222l.707.707M21 12h1M2 12H1m2.222 7.778l.707-.707M19.778 4.222l-.707.707" />
+  </svg>
+</button>
 <div class="min-h-screen bg-gradient-to-b from-sky-50 to-white dark:from-navy-deep dark:to-navy-medium py-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Header -->
@@ -10,7 +21,7 @@
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="w-20 h-20 bg-gradient-to-br from-royal to-blue-deep rounded-full flex items-center justify-center mr-6">
-                        <span class="text-white font-bold text-2xl">{{ session.user_name[0].upper() }}</span>
+                        <span class="text-white font-bold text-2xl">{{ user.name[0].upper() }}</span>
                     </div>
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ session.user_name }}</h1>
