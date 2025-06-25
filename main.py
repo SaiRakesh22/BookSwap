@@ -867,6 +867,7 @@ def accept_chat(request_id):
     flash('Chat accepted! You can now message each other in SwapMates.', 'success')
     return redirect(url_for('chat', request_id=request_id))
 
+
 @app.route('/chat/<int:request_id>')
 def chat(request_id):
     if 'user_id' not in session:
@@ -1067,6 +1068,57 @@ def check_updates():
         'refresh_needed': total_notifications > 0
     })
 
+@app.route('/api/notifications')
+def api_notifications():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"notifications": []})
+
+    try:
+        status_updates = supabase.table("book_requests") \
+            .select("id, status, message, created_at") \
+            .or_(f"owner_id.eq.{user_id},requester_id.eq.{user_id}") \
+            .order("created_at", desc=True) \
+            .limit(5) \
+            .execute().data
+
+        notifications = []
+        for update in status_updates:
+            status = update["status"].capitalize()
+            time_str = update["created_at"][:19].replace("T", " ")
+            notifications.append({
+                "title": f"Request {status}",
+                "message": update.get("message", ""),
+                "time": time_str,
+                "read": False  # Add logic if you track read status
+            })
+
+        return jsonify({"notifications": notifications})
+    except Exception as e:
+        print("Notification error:", e)
+        return jsonify({"notifications": []})
+
+@app.route('/api/get_new_messages')
+def get_new_messages():
+    user_id = session.get('user_id')
+    request_id = request.args.get('request_id')
+    last_update = request.args.get('last_update')
+
+    if not user_id or not request_id or not last_update:
+        return jsonify({'messages': []})
+
+    new_messages = (
+        supabase.table('chat_messages')
+        .select('id, message, sender_id, request_id, created_at, users(name)')
+        .eq('request_id', request_id)
+        .gt('created_at', last_update)
+        .neq('sender_id', user_id)  # This is now safe!
+        .order("created_at")
+        .execute()
+        .data
+    )
+
+    return jsonify({'messages': new_messages})
 
 """
 @app.route('/send_message', methods=['POST'])
