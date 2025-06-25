@@ -386,7 +386,7 @@
                             // Update timestamp to current time
                             lastUpdateTime = new Date().toISOString();
 
-                            if (data.refresh_needed) {
+                            if (data.refresh_needed && !window.location.pathname.includes('/chat')) {
                                 location.reload();  // Optional: reload page for new content
                             }
                         }
