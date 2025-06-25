@@ -13,6 +13,20 @@ app.secret_key = os.getenv("SECRET_KEY")
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
+# OAuth setup using OpenID Connect metadata (Fixes jwks_uri error)
+from authlib.integrations.flask_client import OAuth
+
+oauth = OAuth(app)
+
+google = oauth.register(
+    name='google',
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
 # Database setup
 """def init_db():
@@ -135,8 +149,53 @@ def signin():
             flash('Invalid email or password', 'error')
 
     return render_template('signin.html')
+@app.route('/login/callback')
+def auth_callback():
+    try:
+        # Step 1: Complete OAuth flow
+        token = google.authorize_access_token()
+        resp = google.get('https://openidconnect.googleapis.com/v1/userinfo')
+        user_info = resp.json()
 
+        email = user_info['email']
+        name = user_info.get('name', '')
 
+        # Step 2: Ensure it's a VIT email
+        if not email.endswith("@vitstudent.ac.in"):
+            flash("Only @vitstudent.ac.in emails are allowed", "error")
+            return redirect(url_for('signup'))
+
+        # Step 3: Check if user already exists
+        existing_user = supabase.table("users").select("*").eq("email", email).execute().data
+
+        # Step 4: If not, create the user
+        if not existing_user:
+            supabase.table("users").insert({
+                "name": name,
+                "email": email,
+                "student_id": "",
+                "branch": "",
+                "semester": "",
+                "gender": "",
+                "password_hash": ""  # no password needed for Google sign-in
+            }).execute()
+            # Re-fetch user to get ID
+            existing_user = supabase.table("users").select("*").eq("email", email).execute().data
+
+        # Step 5: Store user ID in session
+        user_data = existing_user[0]
+        session['user_id'] = user_data['id']
+        session['user'] = {"email": email, "name": name}
+
+        print("✅ Google sign-in successful:", session['user'])
+
+        return redirect(url_for('dashboard'))
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash("Google sign-up failed. Please try again.", "error")
+        return redirect(url_for('signup'))
 # --- Signup ---
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -189,6 +248,7 @@ def dashboard():
         return redirect(url_for('signin'))
 
     user_id = session['user_id']
+    user = session.get('user', {})
 
     # Fetch user's books
     user_books_res = supabase.table("books").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
@@ -205,9 +265,12 @@ def dashboard():
     return render_template("dashboard.html",
                            user_books=user_books,
                            requests=requests,
-                           incoming_requests=incoming_requests)
-
-
+                           incoming_requests=incoming_requests,
+                           user=user)  # 👈 added thisrequests=incoming_requests)
+@app.route('/signup/google')
+def signup_google():
+    redirect_uri = url_for('auth_callback', _external=True)
+    return google.authorize_redirect(redirect_uri)
 """
 @app.route('/signin', methods=['GET', 'POST'])
 def signin():
