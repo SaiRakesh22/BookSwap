@@ -351,26 +351,38 @@
 
     <script>
         // Dark mode functionality
-        const themeToggle = document.getElementById('theme-toggle');
-        const currentTheme = localStorage.getItem('theme') || 'light';
+    
+  // Load the saved theme from localStorage
+  const currentTheme = localStorage.getItem('theme') || 'light';
 
-        if (currentTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-        }
+  if (currentTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+  } else {
+      document.documentElement.classList.remove('dark');
+  }
 
-        themeToggle.addEventListener('click', () => {
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-            } else {
-                document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-            }
-        });
+  // Function to toggle theme and update localStorage
+  function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  }
+
+  // Wait for DOM to be ready, then add listeners to both buttons if they exist
+  document.addEventListener('DOMContentLoaded', () => {
+      const desktopToggle = document.getElementById('theme-toggle');
+      const mobileToggle = document.getElementById('theme-toggle-mobile');
+
+      if (desktopToggle) desktopToggle.addEventListener('click', toggleTheme);
+      if (mobileToggle) mobileToggle.addEventListener('click', toggleTheme);
+  });
+
 
         // Auto-refresh functionality
-        let lastUpdateTime = new Date().toISOString();  // Initialize once at page load
-
+        // Only define once if not already defined
+if (typeof lastUpdateTime === 'undefined') {
+  var lastUpdateTime = new Date().toISOString();
+}
         function checkForUpdates() {
             if (window.location.pathname.includes('/dashboard') || 
                 window.location.pathname.includes('/browse') || 
@@ -505,7 +517,7 @@
                 handleFAQ(question);
             });
         });
-
+        
         function sendMessage() {
             const message = chatInput.value.trim();
             if (!message) return;
@@ -528,7 +540,7 @@
                 addMessage(botResponse, true);
             }, 1000);
         }
-
+        
         sendChat.addEventListener('click', sendMessage);
         chatInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
@@ -593,6 +605,7 @@
         });
         // Auto-dismiss flash messages after 3 seconds
         // Fade and remove flash messages after 3 seconds
+        
         setTimeout(() => {
             document.querySelectorAll('.flash-message').forEach(el => {
             el.style.transition = 'opacity 0.5s ease';
