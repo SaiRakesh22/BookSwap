@@ -1419,28 +1419,29 @@ def book_chat(book_id):
         flash('You cannot chat with yourself about your own book.', 'info')
         return redirect(url_for('browse_books'))
 
-    # Find or create a chat session
+    # Find or create a chat session (book_request)
     chat_res = supabase.table('book_requests') \
         .select('*') \
         .eq('book_id', book_id) \
-        .eq('user_id', user_id) \
-        .eq('owner_id', owner_id) \
+        .or_(f'owner_id.eq.{user_id},requester_id.eq.{user_id}') \
         .execute().data
     if chat_res:
         chat_session = chat_res[0]
     else:
-        # Create new chat session
+        # Create new book_request (chat session)
         insert_res = supabase.table('book_requests').insert({
             'book_id': book_id,
-            'user_id': user_id,
-            'owner_id': owner_id
+            'requester_id': user_id,   # <-- Use requester_id, not user_id
+            'owner_id': owner_id,
+            'status': 'pending',       # or 'accepted' if you want to auto-accept
+            'chat_accepted': False     # or True if you want to auto-enable chat
         }).execute().data
         chat_session = insert_res[0]
 
     # Fetch messages for this chat session
     messages = supabase.table('chat_messages') \
         .select('*, users(name)') \
-        .eq('book_chat_id', chat_session['id']) \
+        .eq('request_id', chat_session['id']) \
         .order('created_at', desc=False) \
         .execute().data
 
