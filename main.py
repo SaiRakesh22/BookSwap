@@ -1403,5 +1403,77 @@ def get_notifications():
     return jsonify({'notifications': notifications[:10]})
 """
 
+@app.route('/chat/book/<int:book_id>')
+def book_chat(book_id):
+    if 'user_id' not in session:
+        return redirect(url_for('signin'))
+
+    user_id = session['user_id']
+    # Get book details
+    book_res = supabase.table('books').select('*').eq('id', book_id).single().execute().data
+    if not book_res:
+        flash('Book not found.', 'error')
+        return redirect(url_for('browse_books'))
+    owner_id = book_res['user_id']
+    if user_id == owner_id:
+        flash('You cannot chat with yourself about your own book.', 'info')
+        return redirect(url_for('browse_books'))
+
+    # Find or create a chat session
+    chat_res = supabase.table('book_chats') \
+        .select('*') \
+        .eq('book_id', book_id) \
+        .eq('user_id', user_id) \
+        .eq('owner_id', owner_id) \
+        .execute().data
+    if chat_res:
+        chat_session = chat_res[0]
+    else:
+        # Create new chat session
+        insert_res = supabase.table('book_chats').insert({
+            'book_id': book_id,
+            'user_id': user_id,
+            'owner_id': owner_id
+        }).execute().data
+        chat_session = insert_res[0]
+
+    # Fetch messages for this chat session
+    messages = supabase.table('chat_messages') \
+        .select('*, users(name)') \
+        .eq('book_chat_id', chat_session['id']) \
+        .order('created_at', desc=False) \
+        .execute().data
+
+    # Get partner name
+    partner_res = supabase.table('users').select('name').eq('id', owner_id).single().execute().data
+    partner_name = partner_res['name'] if partner_res else 'Owner'
+
+    return render_template('chat.html',
+        request_data={
+            'id': chat_session['id'],
+            'title': book_res['title'],
+            'author': book_res['author'],
+            'book_id': book_id,
+            'owner_id': owner_id
+        },
+        messages=messages,
+        chat_partner_name=partner_name,
+        is_book_chat=True
+    )
+
+@app.route('/mark_swapped/<int:book_id>', methods=['POST'])
+def mark_swapped(book_id):
+    if 'user_id' not in session:
+        return redirect(url_for('signin'))
+    user_id = session['user_id']
+    # Only owner can mark as swapped
+    book_res = supabase.table('books').select('*').eq('id', book_id).single().execute().data
+    if not book_res or book_res['user_id'] != user_id:
+        flash('Unauthorized action.', 'error')
+        return redirect(url_for('dashboard'))
+    supabase.table('books').update({'is_available': False}).eq('id', book_id).execute()
+    flash('Book marked as swapped and unavailable.', 'success')
+    return redirect(url_for('dashboard'))
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)
