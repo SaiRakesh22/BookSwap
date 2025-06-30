@@ -1420,7 +1420,7 @@ def book_chat(book_id):
         return redirect(url_for('browse_books'))
 
     # Find or create a chat session
-    chat_res = supabase.table('book_chats') \
+    chat_res = supabase.table('book_requests') \
         .select('*') \
         .eq('book_id', book_id) \
         .eq('user_id', user_id) \
@@ -1430,7 +1430,7 @@ def book_chat(book_id):
         chat_session = chat_res[0]
     else:
         # Create new chat session
-        insert_res = supabase.table('book_chats').insert({
+        insert_res = supabase.table('book_requests').insert({
             'book_id': book_id,
             'user_id': user_id,
             'owner_id': owner_id
