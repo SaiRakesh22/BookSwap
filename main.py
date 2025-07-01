@@ -1183,7 +1183,7 @@ def get_new_messages():
 
     return jsonify({'messages': new_messages})
 
-"""
+
 @app.route('/send_message', methods=['POST'])
 def send_message():
     if 'user_id' not in session:
@@ -1214,6 +1214,7 @@ def send_message():
     }).execute()
 
     return jsonify({'success': True})
+"""
 
 @app.route('/api/check_updates')
 def check_updates():
