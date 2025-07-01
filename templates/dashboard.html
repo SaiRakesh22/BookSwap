@@ -200,8 +200,15 @@
                                     </div>
                                 </div>
                                 <span class="inline-block bg-{% if book.is_available %}green{% else %}red{% endif %}-100 text-{% if book.is_available %}green{% else %}red{% endif %}-800 text-xs px-3 py-1 rounded-full font-semibold">
-                                    {% if book.is_available %}✓ Available{% else %}✗ Not Available{% endif %}
+                                    {% if book.is_available %}✓ Available{% else %}✗ Fetched Out{% endif %}
                                 </span>
+                                {% if book.is_available %}
+                                    <form action="{{ url_for('mark_swapped', book_id=book.id) }}" method="POST" class="mt-2">
+                                        <button type="submit" class="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white py-2 px-4 rounded-lg hover:from-orange-500 hover:to-yellow-600 transition-all duration-300 transform hover:scale-105 font-medium glass-button">
+                                            Mark as Fetched Out
+                                        </button>
+                                    </form>
+                                {% endif %}
                             </div>
                         {% endfor %}
                     </div>

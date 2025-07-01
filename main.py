@@ -489,6 +489,7 @@ def request_book(book_id):
             flash("You cannot request your own book.", "error")
             return redirect(url_for('browse_books'))
 
+        # Check if request already exists (any status)
         existing_req = supabase.table('book_requests') \
             .select('id') \
             .eq('requester_id', user_id) \
@@ -505,7 +506,7 @@ def request_book(book_id):
             "owner_id": book_res['user_id'],
             "message": message,
             "status": "pending",
-            "chat_accepted": False
+            "chat_accepted": True
         }).execute()
 
         flash("Book request sent successfully!", "success")
@@ -674,17 +675,13 @@ def accept_request(request_id):
             .eq('id', request_id) \
             .execute()
 
-        # Mark the book as unavailable
-        update_book = supabase.table('books') \
-            .update({'is_available': False}) \
-            .eq('id', request_data['book_id']) \
-            .execute()
+        # Do NOT mark the book as unavailable here
 
         # Flash result
-        if update_req.data and update_book.data:
-            flash("Book request accepted and marked as unavailable.", "success")
+        if update_req.data:
+            flash("Book request accepted.", "success")
         else:
-            flash("Request updated, but book status may not be correct.", "warning")
+            flash("Request updated, but something may be wrong.", "warning")
 
     except Exception as e:
         flash(f"An unexpected error occurred: {str(e)}", "error")
@@ -911,9 +908,44 @@ def swapmates():
 
     user_id = session['user_id']
 
-    response = supabase.rpc("get_chat_requests", {"uid": user_id}).execute()
-    chat_requests = response.data if response.data else []
-
+    # Fetch all chat sessions where user is owner or requester (regardless of book availability)
+    response = supabase.table("book_requests") \
+        .select("*, books(is_available, title, author, user_id)") \
+        .or_(f"owner_id.eq.{user_id},requester_id.eq.{user_id}") \
+        .execute()
+    chat_requests = []
+    for req in response.data or []:
+        if req['books']:
+            # Determine chat partner id
+            if req['owner_id'] == user_id:
+                partner_id = req['requester_id']
+            else:
+                partner_id = req['owner_id']
+            # Fetch partner name
+            partner = supabase.table("users").select("name").eq("id", partner_id).single().execute().data
+            chat_partner_name = partner['name'] if partner else f"User {partner_id}"
+            # Fetch last message and unread count
+            messages = supabase.table('chat_messages') \
+                .select('id, message, sender_id, created_at') \
+                .eq('request_id', req['id']) \
+                .order('created_at', desc=True) \
+                .limit(20) \
+                .execute().data or []
+            last_message = messages[0]['message'] if messages else ''
+            last_message_time = messages[0]['created_at'] if messages else req['created_at']
+            # Unread: messages sent by partner (not current user)
+            unread_count = sum(1 for m in messages if m['sender_id'] == partner_id)
+            chat_requests.append({
+                'id': req['id'],
+                'chat_partner_name': chat_partner_name,
+                'title': req['books']['title'],
+                'last_message': last_message,
+                'last_message_time': last_message_time,
+                'unread_count': unread_count,
+                'is_available': req['books']['is_available'],
+            })
+    # Sort by last_message_time descending
+    chat_requests.sort(key=lambda x: x['last_message_time'], reverse=True)
     return render_template('swapmates.html', chat_requests=chat_requests)
 
 @app.route('/accept_chat/<int:request_id>')
@@ -1183,60 +1215,61 @@ def get_new_messages():
 
     return jsonify({'messages': new_messages})
 
-
+"""
 @app.route('/send_message', methods=['POST'])
 def send_message():
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
-
-    uid = session['user_id']
-    request_id = int(request.form['request_id'])
+    
+    request_id = request.form['request_id']
     message = request.form['message'].strip()
-
+    
     if not message:
         return jsonify({'error': 'Message cannot be empty'}), 400
-
-    # Check chat permission
-    valid = supabase.table('book_requests') \
-        .select('id') \
-        .eq('id', request_id) \
-        .eq('chat_accepted', True) \
-        .or_(f'owner_id.eq.{uid},requester_id.eq.{uid}') \
-        .execute().data
-
-    if not valid:
+    
+    conn = get_db_connection()
+    
+    # Verify user is part of this chat
+    request_data = conn.execute(
+        'SELECT * FROM book_requests WHERE id = ? AND (owner_id = ? OR requester_id = ?) AND chat_accepted = 1',
+        (request_id, session['user_id'], session['user_id'])
+    ).fetchone()
+    
+    if not request_data:
+        conn.close()
         return jsonify({'error': 'Access denied'}), 403
-
-    supabase.table('chat_messages').insert({
-        'request_id': request_id,
-        'sender_id': uid,
-        'message': message
-    }).execute()
-
+    
+    # Insert message
+    conn.execute('''
+        INSERT INTO chat_messages (request_id, sender_id, message)
+        VALUES (?, ?, ?)
+    ''', (request_id, session['user_id'], message))
+    conn.commit()
+    conn.close()
+    
     return jsonify({'success': True})
-"""
 
 @app.route('/api/check_updates')
 def check_updates():
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
-
+    
     last_update = request.args.get('last_update', 0, type=int)
-
+    
     conn = get_db_connection()
-
+    
     # Check for new requests since last update
     new_requests = conn.execute('''
         SELECT COUNT(*) as count FROM book_requests 
         WHERE owner_id = ? AND created_at > datetime(?, 'unixepoch', 'localtime')
     ''', (session['user_id'], last_update / 1000)).fetchone()
-
+    
     # Check for request status updates
     status_updates = conn.execute('''
         SELECT COUNT(*) as count FROM book_requests 
         WHERE requester_id = ? AND created_at > datetime(?, 'unixepoch', 'localtime')
     ''', (session['user_id'], last_update / 1000)).fetchone()
-
+    
     # Check for new chat messages
     new_messages = conn.execute('''
         SELECT COUNT(*) as count FROM chat_messages cm
@@ -1244,13 +1277,13 @@ def check_updates():
         WHERE (br.requester_id = ? OR br.owner_id = ?) AND cm.sender_id != ?
         AND cm.created_at > datetime(?, 'unixepoch', 'localtime')
     ''', (session['user_id'], session['user_id'], session['user_id'], last_update / 1000)).fetchone()
-
+    
     conn.close()
-
+    
     total_notifications = (new_requests['count'] if new_requests else 0) + \
                          (status_updates['count'] if status_updates else 0) + \
                          (new_messages['count'] if new_messages else 0)
-
+    
     return jsonify({
         'has_updates': total_notifications > 0,
         'notification_count': total_notifications,
@@ -1417,23 +1450,34 @@ def book_chat(book_id):
     if user_id == owner_id:
         flash('You cannot chat with yourself about your own book.', 'info')
         return redirect(url_for('browse_books'))
+    if not book_res['is_available']:
+        flash('This book has been fetched out and is no longer available for chat.', 'info')
+        return redirect(url_for('browse_books'))
+
+    # Check if user exists in users table
+    user_check = supabase.table('users').select('id').eq('id', user_id).execute().data
+    if not user_check:
+        session.clear()
+        flash('Your session is invalid. Please sign in again.', 'error')
+        return redirect(url_for('signin'))
 
     # Find or create a chat session (book_request)
     chat_res = supabase.table('book_requests') \
         .select('*') \
         .eq('book_id', book_id) \
-        .or_(f'owner_id.eq.{user_id},requester_id.eq.{user_id}') \
+        .eq('requester_id', user_id) \
+        .eq('owner_id', owner_id) \
         .execute().data
     if chat_res:
         chat_session = chat_res[0]
     else:
-        # Create new book_request (chat session)
+        # Create new chat session
         insert_res = supabase.table('book_requests').insert({
             'book_id': book_id,
-            'requester_id': user_id,   # <-- Use requester_id, not user_id
+            'requester_id': user_id,
             'owner_id': owner_id,
-            'status': 'pending',       # or 'accepted' if you want to auto-accept
-            'chat_accepted': False     # or True if you want to auto-enable chat
+            'status': 'pending',
+            'chat_accepted': True
         }).execute().data
         chat_session = insert_res[0]
 
@@ -1466,13 +1510,13 @@ def mark_swapped(book_id):
     if 'user_id' not in session:
         return redirect(url_for('signin'))
     user_id = session['user_id']
-    # Only owner can mark as swapped
+    # Only owner can mark as fetched out
     book_res = supabase.table('books').select('*').eq('id', book_id).single().execute().data
     if not book_res or book_res['user_id'] != user_id:
         flash('Unauthorized action.', 'error')
         return redirect(url_for('dashboard'))
     supabase.table('books').update({'is_available': False}).eq('id', book_id).execute()
-    flash('Book marked as swapped and unavailable.', 'success')
+    flash('Book marked as fetched out.', 'success')
     return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
