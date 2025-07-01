@@ -1188,56 +1188,54 @@ def get_new_messages():
 def send_message():
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
-    
-    request_id = request.form['request_id']
+
+    uid = session['user_id']
+    request_id = int(request.form['request_id'])
     message = request.form['message'].strip()
-    
+
     if not message:
         return jsonify({'error': 'Message cannot be empty'}), 400
-    
-    conn = get_db_connection()
-    
-    # Verify user is part of this chat
-    request_data = conn.execute(
-        'SELECT * FROM book_requests WHERE id = ? AND (owner_id = ? OR requester_id = ?) AND chat_accepted = 1',
-        (request_id, session['user_id'], session['user_id'])
-    ).fetchone()
-    
-    if not request_data:
-        conn.close()
+
+    # Check chat permission
+    valid = supabase.table('book_requests') \
+        .select('id') \
+        .eq('id', request_id) \
+        .eq('chat_accepted', True) \
+        .or_(f'owner_id.eq.{uid},requester_id.eq.{uid}') \
+        .execute().data
+
+    if not valid:
         return jsonify({'error': 'Access denied'}), 403
-    
-    # Insert message
-    conn.execute('''
-        INSERT INTO chat_messages (request_id, sender_id, message)
-        VALUES (?, ?, ?)
-    ''', (request_id, session['user_id'], message))
-    conn.commit()
-    conn.close()
-    
+
+    supabase.table('chat_messages').insert({
+        'request_id': request_id,
+        'sender_id': uid,
+        'message': message
+    }).execute()
+
     return jsonify({'success': True})
 
 @app.route('/api/check_updates')
 def check_updates():
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
-    
+
     last_update = request.args.get('last_update', 0, type=int)
-    
+
     conn = get_db_connection()
-    
+
     # Check for new requests since last update
     new_requests = conn.execute('''
         SELECT COUNT(*) as count FROM book_requests 
         WHERE owner_id = ? AND created_at > datetime(?, 'unixepoch', 'localtime')
     ''', (session['user_id'], last_update / 1000)).fetchone()
-    
+
     # Check for request status updates
     status_updates = conn.execute('''
         SELECT COUNT(*) as count FROM book_requests 
         WHERE requester_id = ? AND created_at > datetime(?, 'unixepoch', 'localtime')
     ''', (session['user_id'], last_update / 1000)).fetchone()
-    
+
     # Check for new chat messages
     new_messages = conn.execute('''
         SELECT COUNT(*) as count FROM chat_messages cm
@@ -1245,13 +1243,13 @@ def check_updates():
         WHERE (br.requester_id = ? OR br.owner_id = ?) AND cm.sender_id != ?
         AND cm.created_at > datetime(?, 'unixepoch', 'localtime')
     ''', (session['user_id'], session['user_id'], session['user_id'], last_update / 1000)).fetchone()
-    
+
     conn.close()
-    
+
     total_notifications = (new_requests['count'] if new_requests else 0) + \
                          (status_updates['count'] if status_updates else 0) + \
                          (new_messages['count'] if new_messages else 0)
-    
+
     return jsonify({
         'has_updates': total_notifications > 0,
         'notification_count': total_notifications,

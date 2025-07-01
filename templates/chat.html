@@ -45,10 +45,10 @@
             
             <!-- Chat Input -->
             <div class="border-t border-gray-200 dark:border-gray-700 p-6">
-                <form id="chat-form" class="flex space-x-4">
-                    <input type="hidden" name="book_chat_id" value="{{ request_data.id }}">
-                    <input type="text" name="message" id="message-input" placeholder="Type your message..." 
-                           class="flex-1 p-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-navy-light focus:outline-none focus:ring-2 focus:ring-purple-500 glass-morphism">
+                <form id="chat-form" action="/send_message" method="POST">
+                    <input type="hidden" name="request_id" value="{{ request_data.id }}">
+                    <textarea name="message" required placeholder="Type your message..." 
+                              class="flex-1 p-4 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-navy-light focus:outline-none focus:ring-2 focus:ring-purple-500 glass-morphism"></textarea>
                     <button type="submit" class="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-xl font-semibold hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 glass-button">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
