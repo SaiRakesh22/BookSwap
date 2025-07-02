@@ -4,6 +4,11 @@ import hashlib
 import os
 from datetime import datetime
 import re
+import base64
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import secrets
 
 from supabase import create_client, Client
 
@@ -13,6 +18,56 @@ app.secret_key = os.getenv("SECRET_KEY")
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
+
+# Encryption setup
+def generate_encryption_key():
+    """Generate a new encryption key"""
+    return Fernet.generate_key()
+
+def derive_key_from_password(password, salt=None):
+    """Derive encryption key from password using PBKDF2"""
+    if salt is None:
+        salt = secrets.token_bytes(16)
+    
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+    return key, salt
+
+def encrypt_message(message, key):
+    """Encrypt a message using Fernet"""
+    try:
+        f = Fernet(key)
+        encrypted_message = f.encrypt(message.encode())
+        return base64.urlsafe_b64encode(encrypted_message).decode()
+    except Exception as e:
+        print(f"Encryption error: {e}")
+        return None
+
+def decrypt_message(encrypted_message, key):
+    """Decrypt a message using Fernet"""
+    try:
+        f = Fernet(key)
+        encrypted_bytes = base64.urlsafe_b64decode(encrypted_message.encode())
+        decrypted_message = f.decrypt(encrypted_bytes)
+        return decrypted_message.decode()
+    except Exception as e:
+        print(f"Decryption error: {e}")
+        # Fallback: return the raw message for debugging
+        return encrypted_message
+
+def get_chat_encryption_key(request_id, user_id=None):
+    """Get or generate encryption key for a specific chat session"""
+    # Use only request_id so both users derive the same key
+    chat_secret = f"chat_session_{request_id}"
+    salt = hashlib.sha256(chat_secret.encode()).digest()[:16]
+    key, _ = derive_key_from_password(chat_secret, salt)
+    return key
+
 # OAuth setup using OpenID Connect metadata (Fixes jwks_uri error)
 from authlib.integrations.flask_client import OAuth
 
@@ -931,8 +986,15 @@ def swapmates():
                 .order('created_at', desc=True) \
                 .limit(20) \
                 .execute().data or []
-            last_message = messages[0]['message'] if messages else ''
-            last_message_time = messages[0]['created_at'] if messages else req['created_at']
+            
+            # Decrypt the last message for display
+            last_message = ''
+            last_message_time = req['created_at']
+            if messages:
+                encryption_key = get_chat_encryption_key(req['id'], user_id)
+                last_message = decrypt_message(messages[0]['message'], encryption_key) if messages[0].get('message') else ''
+                last_message_time = messages[0]['created_at']
+            
             # Unread: messages sent by partner (not current user)
             unread_count = sum(1 for m in messages if m['sender_id'] == partner_id)
             chat_requests.append({
@@ -982,6 +1044,13 @@ def chat(request_id):
         .eq('request_id', request_id) \
         .order('created_at', desc=False) \
         .execute().data
+
+    # Decrypt messages for display
+    encryption_key = get_chat_encryption_key(request_id, uid)
+    for message in messages:
+        if message.get('message'):
+            decrypted_message = decrypt_message(message['message'], encryption_key)
+            message['message'] = decrypted_message
 
     partner_name = request_data['owner_name'] if uid == request_data['requester_id'] else request_data['requester_name']
 
@@ -1098,10 +1167,17 @@ def send_message():
     if not valid:
         return jsonify({'error': 'Access denied'}), 403
 
+    # Encrypt the message before storing
+    encryption_key = get_chat_encryption_key(request_id, uid)
+    encrypted_message = encrypt_message(message, encryption_key)
+    
+    if encrypted_message is None:
+        return jsonify({'error': 'Failed to encrypt message'}), 500
+
     supabase.table('chat_messages').insert({
         'request_id': request_id,
         'sender_id': uid,
-        'message': message
+        'message': encrypted_message
     }).execute()
 
     return jsonify({'success': True})
@@ -1212,6 +1288,13 @@ def get_new_messages():
         .execute()
         .data
     )
+
+    # Decrypt messages for display
+    encryption_key = get_chat_encryption_key(int(request_id), user_id)
+    for message in new_messages:
+        if message.get('message'):
+            decrypted_message = decrypt_message(message['message'], encryption_key)
+            message['message'] = decrypted_message
 
     return jsonify({'messages': new_messages})
 
@@ -1487,6 +1570,13 @@ def book_chat(book_id):
         .eq('request_id', chat_session['id']) \
         .order('created_at', desc=False) \
         .execute().data
+
+    # Decrypt messages for display
+    encryption_key = get_chat_encryption_key(chat_session['id'], user_id)
+    for message in messages:
+        if message.get('message'):
+            decrypted_message = decrypt_message(message['message'], encryption_key)
+            message['message'] = decrypted_message
 
     # Get partner name
     partner_res = supabase.table('users').select('name').eq('id', owner_id).single().execute().data
