@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block title %}Chat with {{ chat_partner_name }} - BookSwap VIT{% endblock %}
@@ -16,6 +15,12 @@
                     <div>
                         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ chat_partner_name }}</h1>
                         <p class="text-gray-600 dark:text-gray-400">Chatting about: {{ request_data.title }} by {{ request_data.author }}</p>
+                        <div class="flex items-center mt-2">
+                            <svg class="w-4 h-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                            <span class="text-sm text-green-600 dark:text-green-400 font-medium">End-to-End Encrypted</span>
+                        </div>
                     </div>
                 </div>
                 <a href="/swapmates" class="bg-gradient-to-r from-gray-500 to-gray-600 text-white px-4 py-2 rounded-lg hover:from-gray-600 hover:to-gray-700 transition-all duration-300 glass-button">
@@ -59,15 +64,15 @@
             </div>
         </div>
 
-        <!-- Safety Notice -->
-        <div class="glass-card rounded-2xl p-6 mt-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 animate-fade-in">
+        <!-- Encryption Notice -->
+        <div class="glass-card rounded-2xl p-6 mt-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 animate-fade-in">
             <div class="flex items-center">
-                <svg class="w-6 h-6 text-yellow-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                <svg class="w-6 h-6 text-green-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                 </svg>
                 <div>
-                    <h3 class="font-semibold text-yellow-800 dark:text-yellow-200">Safety First</h3>
-                    <p class="text-sm text-yellow-700 dark:text-yellow-300">Always meet in public areas on campus for book exchanges. Never share personal information like phone numbers or room details.</p>
+                    <h3 class="font-semibold text-green-800 dark:text-green-200">Message Security</h3>
+                    <p class="text-sm text-green-700 dark:text-green-300">All messages are encrypted using AES-256 encryption. Only you and your chat partner can read these messages.</p>
                 </div>
             </div>
         </div>
