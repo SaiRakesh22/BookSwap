@@ -516,6 +516,10 @@ if (typeof lastUpdateTime === 'undefined') {
     document.getElementById('feedback-form').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = this;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Sending...";
+
         const formData = new FormData(form);
         fetch('/submit_feedback', {
             method: 'POST',
@@ -524,17 +528,28 @@ if (typeof lastUpdateTime === 'undefined') {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                alert('Feedback sent! Thank you.');
-                closeFeedbackModal();
-                form.reset();
-                document.getElementById('feedback-rating').value = '';
-                document.querySelectorAll('.star-rating').forEach(s => {
-                    s.classList.remove('text-yellow-400');
-                    s.classList.add('text-gray-300');
-                });
+                submitBtn.textContent = "Sent!";
+                setTimeout(() => {
+                    closeFeedbackModal();
+                    form.reset();
+                    document.getElementById('feedback-rating').value = '';
+                    document.querySelectorAll('.star-rating').forEach(s => {
+                        s.classList.remove('text-yellow-400');
+                        s.classList.add('text-gray-300');
+                    });
+                    submitBtn.textContent = "Submit Feedback";
+                    submitBtn.disabled = false;
+                }, 800);
             } else {
-                alert('Failed to send feedback: ' + (data.error || 'Unknown error'));
+                submitBtn.textContent = "Submit Feedback";
+                submitBtn.disabled = false;
+                // Optionally, show a small error message in the modal
             }
+        })
+        .catch(() => {
+            submitBtn.textContent = "Submit Feedback";
+            submitBtn.disabled = false;
+            // Optionally, show a small error message in the modal
         });
     });
 </script>
