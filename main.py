@@ -9,6 +9,9 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from supabase import create_client, Client
 
@@ -1609,5 +1612,50 @@ def mark_swapped(book_id):
     flash('Book marked as fetched out.', 'success')
     return redirect(url_for('dashboard'))
 
+@app.route('/submit_feedback', methods=['POST'])
+def submit_feedback():
+    rating = request.form.get('rating')
+    comments = request.form.get('comments')
+    user_email = session.get('user_email', 'Anonymous')
+    user_name = session.get('user_name', 'Anonymous')
+
+    # Compose email
+    owner_email = os.getenv('OWNER_EMAIL')
+    if not owner_email:
+        return jsonify({'error': 'Owner email not configured.'}), 500
+
+    subject = f"New BookSwap Feedback from {user_name}"
+    body = f"""
+    Feedback received from BookSwap Dashboard:
+
+    User: {user_name} ({user_email})
+    Rating: {rating}
+    Comments: {comments}
+    """
+
+    msg = MIMEMultipart()
+    msg['From'] = os.getenv('GMAIL_USER')
+    msg['To'] = owner_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        smtp_server = 'smtp.gmail.com'
+        smtp_port = 587
+        gmail_user = os.getenv('GMAIL_USER')
+        gmail_password = os.getenv('GMAIL_PASSWORD')
+        if not gmail_user or not gmail_password:
+            return jsonify({'error': 'Gmail credentials not configured.'}), 500
+
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(gmail_user, gmail_password)
+        server.sendmail(gmail_user, owner_email, msg.as_string())
+        server.quit()
+        return jsonify({'success': True})
+    except Exception as e:
+        print('Feedback email error:', e)
+        return jsonify({'error': 'Failed to send feedback.'}), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    app.run(host='0.0.0.0', port=7001, debug=True)
