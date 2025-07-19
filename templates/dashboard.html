@@ -391,7 +391,7 @@
         </h3>
         <p class="text-gray-600 dark:text-gray-300 mb-6">Help us improve BookSwap VIT with your valuable feedback!</p>
         
-        <form class="space-y-4">
+        <form id="feedback-form" method="POST" action="/submit_feedback" class="space-y-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Rating</label>
                 <div class="flex space-x-2">
@@ -401,11 +401,12 @@
                     <button type="button" class="star-rating text-2xl text-gray-300 hover:text-yellow-400 transition-colors" data-rating="4">★</button>
                     <button type="button" class="star-rating text-2xl text-gray-300 hover:text-yellow-400 transition-colors" data-rating="5">★</button>
                 </div>
+                <input type="hidden" name="rating" id="feedback-rating" value="">
             </div>
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Comments</label>
-                <textarea rows="4" class="w-full px-4 py-3 border border-gray-300 dark:border-navy-medium dark:bg-navy-medium rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900 dark:text-white" placeholder="Share your thoughts..."></textarea>
+                <textarea rows="4" name="comments" class="w-full px-4 py-3 border border-gray-300 dark:border-navy-medium dark:bg-navy-medium rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900 dark:text-white" placeholder="Share your thoughts..."></textarea>
             </div>
             
             <div class="flex space-x-4">
@@ -459,6 +460,7 @@
     document.querySelectorAll('.star-rating').forEach((star, index) => {
         star.addEventListener('click', () => {
             const rating = parseInt(star.dataset.rating);
+            document.getElementById('feedback-rating').value = rating;
             document.querySelectorAll('.star-rating').forEach((s, i) => {
                 if (i < rating) {
                     s.classList.add('text-yellow-400');
@@ -508,6 +510,32 @@ if (typeof lastUpdateTime === 'undefined') {
         if (e.target === this) {
             closeFeedbackModal();
         }
+    });
+
+    // Add AJAX form submission for feedback
+    document.getElementById('feedback-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const formData = new FormData(form);
+        fetch('/submit_feedback', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Feedback sent! Thank you.');
+                closeFeedbackModal();
+                form.reset();
+                document.getElementById('feedback-rating').value = '';
+                document.querySelectorAll('.star-rating').forEach(s => {
+                    s.classList.remove('text-yellow-400');
+                    s.classList.add('text-gray-300');
+                });
+            } else {
+                alert('Failed to send feedback: ' + (data.error || 'Unknown error'));
+            }
+        });
     });
 </script>
 {% endblock %}
