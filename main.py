@@ -1620,9 +1620,12 @@ def submit_feedback():
     user_name = session.get('user_name', 'Anonymous')
 
     # Compose email
-    owner_email = os.getenv('OWNER_EMAIL')
-    if not owner_email:
+    owner_emails = os.getenv('OWNER_EMAIL')
+    if not owner_emails:
         return jsonify({'error': 'Owner email not configured.'}), 500
+
+    # Split emails into a list
+    recipient_list = [email.strip() for email in owner_emails.split(',')]
 
     subject = f"New BookSwap Feedback from {user_name}"
     body = f"""
@@ -1634,23 +1637,21 @@ def submit_feedback():
     """
 
     msg = MIMEMultipart()
-    msg['From'] = os.getenv('GMAIL_USER')
-    msg['To'] = owner_email
+    gmail_user = os.getenv('GMAIL_USER')
+    gmail_password = os.getenv('GMAIL_PASSWORD')
+    if not gmail_user or not gmail_password:
+        return jsonify({'error': 'Gmail credentials not configured.'}), 500
+
+    msg['From'] = gmail_user
+    msg['To'] = ", ".join(recipient_list)
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
 
     try:
-        smtp_server = 'smtp.gmail.com'
-        smtp_port = 587
-        gmail_user = os.getenv('GMAIL_USER')
-        gmail_password = os.getenv('GMAIL_PASSWORD')
-        if not gmail_user or not gmail_password:
-            return jsonify({'error': 'Gmail credentials not configured.'}), 500
-
-        server = smtplib.SMTP(smtp_server, smtp_port)
+        server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(gmail_user, gmail_password)
-        server.sendmail(gmail_user, owner_email, msg.as_string())
+        server.sendmail(gmail_user, recipient_list, msg.as_string())
         server.quit()
         return jsonify({'success': True})
     except Exception as e:
