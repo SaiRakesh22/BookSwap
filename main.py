@@ -209,6 +209,7 @@ def signin():
     return render_template('signin.html')
 @app.route('/login/callback')
 def auth_callback():
+    ...
     try:
         # Step 1: Complete OAuth flow
         token = google.authorize_access_token()
