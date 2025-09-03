@@ -1659,5 +1659,53 @@ def submit_feedback():
         print('Feedback email error:', e)
         return jsonify({'error': 'Failed to send feedback.'}), 500
 
+# Example Flask route
+@app.route('/resources', methods=['GET', 'POST'])
+def resources():
+    if 'user_id' not in session:
+        return redirect(url_for('signin'))
+
+    if request.method == 'POST':
+        title = request.form['title'].strip()
+        author = request.form['author'].strip()
+        drive_link = request.form['drive_link'].strip()
+        description = request.form['description'].strip()
+        subjects = request.form['subjects'].strip()
+        user_id = session['user_id']
+
+        try:
+            result = supabase.table('resources').insert({
+                "user_id": user_id,
+                "title": title,
+                "author": author,
+                "drive_link": drive_link,
+                "description": description,
+                "subjects": subjects
+            }).execute()
+
+            if result.data:
+                flash("Resource shared successfully!", "success")
+            else:
+                flash("Failed to share resource.", "error")
+
+        except Exception as e:
+            print("Add resource error:", e)
+            flash("An error occurred while sharing the resource.", "error")
+
+        return redirect(url_for('resources'))
+
+    # --- Filtering logic ---
+    search = request.args.get('search', '').strip()
+    subject = request.args.get('subject', '').strip()
+
+    query = supabase.table('resources').select('*')
+    if search:
+        query = query.ilike('title', f'%{search}%')
+    if subject:
+        query = query.ilike('subjects', f'%{subject}%')
+    resources_list = query.order('created_at', desc=True).execute().data or []
+
+    return render_template('resources.html', resources=resources_list, search=search, subject=subject)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Share a Resource - BookSwap VIT{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-b from-sky-50 to-white dark:from-navy-deep dark:to-navy-medium py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">Share a Resource (Google Drive Link)</h1>
+            <p class="text-xl text-gray-600 dark:text-gray-300">Add a Google Drive link to share books, notes, or materials with VIT students.</p>
+        </div>
+
+        <!-- Form -->
+        <div class="bg-white dark:bg-navy-light rounded-2xl p-8 shadow-lg mb-12">
+            <form method="POST" class="space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <label for="title" class="block text-lg font-semibold text-gray-900 dark:text-white mb-3">Resource Title</label>
+                        <input type="text" id="title" name="title" required 
+                               class="w-full px-5 py-4 border-2 border-gray-200 dark:border-navy-medium dark:bg-navy-medium rounded-xl focus:ring-2 focus:ring-royal focus:border-royal transition-all duration-300 text-lg text-gray-900 dark:text-white"
+                               placeholder="e.g., DSA Notes, Algorithms Book">
+                    </div>
+                    <div>
+                        <label for="author" class="block text-lg font-semibold text-gray-900 dark:text-white mb-3">Author / Uploader</label>
+                        <input type="text" id="author" name="author" required 
+                               class="w-full px-5 py-4 border-2 border-gray-200 dark:border-navy-medium dark:bg-navy-medium rounded-xl focus:ring-2 focus:ring-royal focus:border-royal transition-all duration-300 text-lg text-gray-900 dark:text-white"
+                               placeholder="e.g., Your Name">
+                    </div>
+                </div>
+                <div>
+                    <label for="drive_link" class="block text-lg font-semibold text-gray-900 dark:text-white mb-3">Google Drive Link</label>
+                    <input type="url" id="drive_link" name="drive_link" required
+                           class="w-full px-5 py-4 border-2 border-gray-200 dark:border-navy-medium dark:bg-navy-medium rounded-xl focus:ring-2 focus:ring-royal focus:border-royal transition-all duration-300 text-lg text-gray-900 dark:text-white"
+                           placeholder="Paste your Google Drive link here">
+                </div>
+                <div>
+                    <label for="description" class="block text-lg font-semibold text-gray-900 dark:text-white mb-3">Description</label>
+                    <textarea id="description" name="description" rows="3"
+                              class="w-full px-5 py-4 border-2 border-gray-200 dark:border-navy-medium dark:bg-navy-medium rounded-xl focus:ring-2 focus:ring-royal focus:border-royal transition-all duration-300 text-lg text-gray-900 dark:text-white"
+                              placeholder="Briefly describe the resource (e.g., topics covered, semester, branch, etc.)"></textarea>
+                </div>
+                <div>
+                    <label for="subjects" class="block text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                        Subjects/Keywords 
+                        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(Comma-separated, e.g., DSA, Algorithms, Programming)</span>
+                    </label>
+                    <textarea id="subjects" name="subjects" rows="2"
+                              class="w-full px-5 py-4 border-2 border-gray-200 dark:border-navy-medium dark:bg-navy-medium rounded-xl focus:ring-2 focus:ring-royal focus:border-royal transition-all duration-300 text-lg text-gray-900 dark:text-white"
+                              placeholder="e.g., Data Structures, Algorithms, Python"></textarea>
+                </div>
+                <div class="flex justify-center">
+                    <button type="submit" class="bg-royal text-white px-12 py-4 rounded-xl text-xl font-bold hover:bg-blue-deep transform hover:scale-105 transition-all duration-300 shadow-lg">
+                        Share Resource
+                    </button>
+                </div>
+                <p class="text-center text-sm text-gray-600 dark:text-gray-400">
+                    Please ensure your Google Drive link is set to "Anyone with the link can view".
+                </p>
+            </form>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="mb-8">
+            <form method="GET" class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <input type="text" name="search" value="{{ search or '' }}" placeholder="Search by title or author"
+                    class="w-full md:w-1/3 px-4 py-2 border-2 border-gray-200 dark:border-navy-medium rounded-xl text-lg dark:bg-navy-medium dark:text-white">
+                <input type="text" name="subject" value="{{ subject or '' }}" placeholder="Filter by subject/keyword"
+                    class="w-full md:w-1/3 px-4 py-2 border-2 border-gray-200 dark:border-navy-medium rounded-xl text-lg dark:bg-navy-medium dark:text-white">
+                <button type="submit" class="bg-royal text-white px-6 py-2 rounded-xl font-semibold hover:bg-blue-deep transition-all duration-300">
+                    Filter
+                </button>
+            </form>
+        </div>
+
+        <!-- Resource List Section -->
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">All Shared Resources</h2>
+            {% if resources %}
+                <div class="grid grid-cols-1 gap-6">
+                    {% for res in resources %}
+                        <div class="bg-white dark:bg-navy-light rounded-xl shadow p-6">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ res.title }}</h3>
+                                    <p class="text-gray-700 dark:text-gray-300 mb-2">By {{ res.author }}</p>
+                                    <p class="text-gray-600 dark:text-gray-400 mb-2">{{ res.description }}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                                        <span class="font-semibold">Subjects:</span> {{ res.subjects }}
+                                    </p>
+                                </div>
+                                <div class="mt-4 md:mt-0">
+                                    <a href="{{ res.drive_link }}" target="_blank" class="inline-block bg-royal text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-deep transition-all duration-300">
+                                        View Resource
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-center text-gray-500 dark:text-gray-400">No resources found.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
