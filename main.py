@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from dotenv import load_dotenv
 import hashlib
 import os
+import traceback
 from datetime import datetime
 import re
 import base64
@@ -1198,42 +1199,45 @@ def check_updates():
         return jsonify({'error': 'Missing last_update'}), 400
 
     try:
-        # Convert ISO 8601 timestamp string to datetime format
-        last_update = datetime.fromisoformat(last_update_str.replace("Z", "+00:00"))
-    except ValueError:
+        # Support ISO timestamps with or without trailing Z
+        last_update = datetime.fromisoformat(last_update_str.replace('Z', '+00:00'))
+    except Exception:
         return jsonify({'error': 'Invalid timestamp format'}), 400
 
     last_update_iso = last_update.isoformat()
 
-    # Check for new requests to user (as owner)
-    new_requests = supabase.table("book_requests") \
-        .select("id") \
-        .eq("owner_id", user_id) \
-        .gt("created_at", last_update_iso) \
-        .execute().data
+    try:
+        # Wrap Supabase/http requests in a try block so transport errors don't crash the Flask app
+        new_requests = supabase.table('book_requests') \
+            .select('id') \
+            .eq('owner_id', user_id) \
+            .gt('created_at', last_update_iso) \
+            .execute().data or []
 
-    # Check for status updates (as requester)
-    status_updates = supabase.table("book_requests") \
-        .select("id") \
-        .eq("requester_id", user_id) \
-        .gt("created_at", last_update_iso) \
-        .execute().data
+        status_updates = supabase.table('book_requests') \
+            .select('id') \
+            .eq('requester_id', user_id) \
+            .gt('created_at', last_update_iso) \
+            .execute().data or []
 
-    # Get all chat_messages since last update
-    new_messages = supabase.table("chat_messages") \
-        .select("id, request_id, sender_id, created_at") \
-        .gt("created_at", last_update_iso) \
-        .neq("sender_id", user_id) \
-        .execute().data
+        new_messages = supabase.table('chat_messages') \
+            .select('id, request_id, sender_id, created_at') \
+            .gt('created_at', last_update_iso) \
+            .neq('sender_id', user_id) \
+            .execute().data or []
 
-    # Get related request_ids where user is either requester or owner
-    request_ids = supabase.table("book_requests") \
-        .select("id") \
-        .or_(f"owner_id.eq.{user_id},requester_id.eq.{user_id}") \
-        .execute().data
+        request_ids = supabase.table('book_requests') \
+            .select('id') \
+            .or_(f'owner_id.eq.{user_id},requester_id.eq.{user_id}') \
+            .execute().data or []
+    except Exception as e:
+        # Log traceback and return a 503 so client can implement backoff/retry
+        traceback.print_exc()
+        current_app.logger.exception('Supabase/httpx request failed in /api/check_updates')
+        return jsonify({'error': 'Upstream request failed', 'details': str(e)}), 503
 
-    valid_request_ids = {r["id"] for r in request_ids}
-    relevant_messages = [msg for msg in new_messages if msg["request_id"] in valid_request_ids]
+    valid_request_ids = {r['id'] for r in request_ids}
+    relevant_messages = [msg for msg in new_messages if msg['request_id'] in valid_request_ids]
 
     total_notifications = len(new_requests) + len(status_updates) + len(relevant_messages)
 
@@ -1613,6 +1617,7 @@ def mark_swapped(book_id):
     flash('Book marked as fetched out.', 'success')
     return redirect(url_for('dashboard'))
 
+
 @app.route('/submit_feedback', methods=['POST'])
 def submit_feedback():
     rating = request.form.get('rating')
@@ -1625,17 +1630,19 @@ def submit_feedback():
     if not owner_emails:
         return jsonify({'error': 'Owner email not configured.'}), 500
 
-    # Split emails into a list
-    recipient_list = [email.strip() for email in owner_emails.split(',')]
+    # Split emails into a list (support comma-separated env)
+    recipient_list = [e.strip() for e in owner_emails.split(',') if e.strip()]
+    if not recipient_list:
+        return jsonify({'error': 'Owner email not configured.'}), 500
 
     subject = f"New BookSwap Feedback from {user_name}"
     body = f"""
-    Feedback received from BookSwap Dashboard:
+Feedback received from BookSwap Dashboard:
 
-    User: {user_name} ({user_email})
-    Rating: {rating}
-    Comments: {comments}
-    """
+User: {user_name} ({user_email})
+Rating: {rating}
+Comments: {comments}
+"""
 
     msg = MIMEMultipart()
     gmail_user = os.getenv('GMAIL_USER')
@@ -1646,18 +1653,27 @@ def submit_feedback():
     msg['From'] = gmail_user
     msg['To'] = ", ".join(recipient_list)
     msg['Subject'] = subject
+    # Set Reply-To so owners can reply directly to the user email
+    msg['Reply-To'] = user_email
     msg.attach(MIMEText(body, 'plain'))
 
+    smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+    smtp_port = int(os.getenv('SMTP_PORT', 587))
+
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
+        server.ehlo()
         server.starttls()
+        server.ehlo()
         server.login(gmail_user, gmail_password)
         server.sendmail(gmail_user, recipient_list, msg.as_string())
         server.quit()
         return jsonify({'success': True})
     except Exception as e:
+        # Print traceback to console for debugging (redact secrets when pasting)
+        traceback.print_exc()
         print('Feedback email error:', e)
-        return jsonify({'error': 'Failed to send feedback.'}), 500
+        return jsonify({'error': 'Failed to send feedback.', 'details': str(e)}), 500
 
 # Example Flask route
 @app.route('/resources', methods=['GET', 'POST'])
@@ -1708,4 +1724,4 @@ def resources():
     return render_template('resources.html', resources=resources_list, search=search, subject=subject)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    app.run(host='127.0.0.1', port=8000, debug=True)
