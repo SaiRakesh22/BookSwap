@@ -1,0 +1,24 @@
+# pack-refs with: peeled fully-peeled sorted 
+a0fb1823ad663735485c0a4292680620f9960b76 refs/heads/SaiRakesh22-chat-1
+31d8f6e364bae1e5a7cca6899ce43a99ccf67bab refs/heads/main
+5d1ec4ebcfa1340ab6495787c8fbc1f85ea93467 refs/pull/10/head
+705a022c10db659eb817c309c6294e3b01c2338b refs/pull/11/head
+9ff1d28c8d908d1edfe8349ae50be3774422ee10 refs/pull/12/head
+b9a8b876833bb3df9346f8706b5e23a656e6d9dd refs/pull/13/head
+96d1b5f1a5b68a20158c8964313b60b4ca4bb078 refs/pull/14/head
+d4d54f5cb172177a4103a88657cff6f976e1405a refs/pull/15/head
+ff88abc8528cca0e5c616248a9fec7cdfc90ec01 refs/pull/16/head
+1f97c7b68c239d1e38651311fe23f91a8a85bd63 refs/pull/17/head
+56a308a6b2a92fd6adb7ab401d8c1aae2c128164 refs/pull/18/head
+a140f53daf99b4ec1c7007fa0a3e88367151fd2e refs/pull/19/head
+a0fb1823ad663735485c0a4292680620f9960b76 refs/pull/2/head
+8c08870d3a1cb6c7eec5aed9bae5e5565549623c refs/pull/20/head
+d8d6d1ac3dbe128dc2116fd5444f17e95853ab01 refs/pull/21/head
+d16b6268a788e2c96c88134e755ca82a553f9fe6 refs/pull/22/head
+7fe21731e02d13ec79e1fc8db06a1a072a46157a refs/pull/23/head
+a99cf62aef39ec3fd57fc10239c1dd1699b65562 refs/pull/24/head
+199e9ce4f3f91bac1fc73d01c5144a95731c8943 refs/pull/3/head
+47d197fc66b6400271406e706a30703248de7d3b refs/pull/4/head
+79c231c1806206a18a129745992734d98dd0a5cb refs/pull/7/head
+92e3430d377a6742cfb4c3e80314998fb724d75a refs/pull/8/head
+64845677eada306821e0c52a4a3b3ecaf0dd0f85 refs/pull/9/head
