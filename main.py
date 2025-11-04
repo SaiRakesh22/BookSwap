@@ -18,7 +18,16 @@ from supabase import create_client, Client
 
 app = Flask(__name__)
 load_dotenv()
-app.secret_key = os.getenv("SECRET_KEY")
+# Ensure a stable secret key (set SECRET_KEY in your environment for production)
+app.secret_key = os.getenv("SECRET_KEY") or os.getenv("FLASK_SECRET") or "dev-secret-for-local"
+# Cookie settings (adjust via env in production)
+app.config.update(
+    SESSION_COOKIE_SAMESITE=os.getenv('SESSION_COOKIE_SAMESITE', 'Lax'),
+    SESSION_COOKIE_SECURE=(os.getenv('SESSION_COOKIE_SECURE', 'False').lower() == 'true'),
+)
+# If app runs behind a proxy (Render/Heroku), make sure requests preserve original proto/host
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
@@ -1621,6 +1630,11 @@ def mark_swapped(book_id):
 @app.route('/submit_feedback', methods=['POST'])
 def submit_feedback():
     rating = request.form.get('rating')
+    # Normalize rating to an integer when possible, otherwise keep None
+    try:
+        rating = int(rating) if rating is not None and str(rating).strip() != '' else None
+    except (ValueError, TypeError):
+        rating = None
     comments = request.form.get('comments')
     user_email = session.get('user_email', 'Anonymous')
     user_name = session.get('user_name', 'Anonymous')
@@ -1645,10 +1659,10 @@ Comments: {comments}
 """
 
     msg = MIMEMultipart()
-    gmail_user = os.getenv('GMAIL_USER')
-    gmail_password = os.getenv('GMAIL_PASSWORD')
+    gmail_user = os.getenv('MAIL_USERNAME')
+    gmail_password = os.getenv('MAIL_PASSWORD')
     if not gmail_user or not gmail_password:
-        return jsonify({'error': 'Gmail credentials not configured.'}), 500
+        return jsonify({'error': 'Mail credentials not configured.'}), 500
 
     msg['From'] = gmail_user
     msg['To'] = ", ".join(recipient_list)
@@ -1657,8 +1671,8 @@ Comments: {comments}
     msg['Reply-To'] = user_email
     msg.attach(MIMEText(body, 'plain'))
 
-    smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-    smtp_port = int(os.getenv('SMTP_PORT', 587))
+    smtp_server = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+    smtp_port = int(os.getenv('MAIL_PORT', 587))
 
     try:
         server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
@@ -1724,4 +1738,7 @@ def resources():
     return render_template('resources.html', resources=resources_list, search=search, subject=subject)
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=8000, debug=True)
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    port = int(os.getenv('PORT', 8000))
+    # Disable the reloader to avoid multiple processes which can break OAuth state
+    app.run(host='127.0.0.1', port=port, debug=debug_mode, use_reloader=False)
