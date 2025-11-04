@@ -1,8 +1,0 @@
-# Replace exact secret values with safe placeholders
-ecb577148267fc224a45d8c68cb7755d1030be80c9f248ad286063a380bf6672==>REDACTED_SECRET_KEY
-xyoivpovktcrignj==>REDACTED_MAIL_PASSWORD
-971969755158-9kjsdqt1gvdqdsflolqfp5lidsfsudt6.apps.googleusercontent.com==>REDACTED_GOOGLE_CLIENT_ID
-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==>REDACTED_GOOGLE_CLIENT_SECRET
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNrbGdweGRiZ2l0dWdtaWdvZW5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA3NzA0MjksImV4cCI6MjA2NjM0NjQyOX0.-xaZjNNj4CDK6kzyhr1o7BVAEP4KvoEz85RN9-vWZes==>REDACTED_SUPABASE_KEY
-# If your DATABASE_URL contains an actual password other than 'your_password_here', add it here:
-# e.g. postgresql://postgres:ACTUAL_DB_PASS@db.cklgpxdbgitugmigoend.supabase.co:5432/postgres==>postgresql://postgres:REDACTED_DB_PASS@db.cklgpxdbgitugmigoend.supabase.co:5432/postgres
